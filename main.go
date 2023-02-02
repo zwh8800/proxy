@@ -1,10 +1,16 @@
 package main
 
 import (
+	"flag"
 	"io"
 	"log"
 	"net/http"
-	"os"
+	"strings"
+)
+
+var (
+	prefix string
+	addr   string
 )
 
 var client = &http.Client{
@@ -16,7 +22,7 @@ var client = &http.Client{
 type h struct{}
 
 func (h) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	proxyTo := r.RequestURI[1:] // remove '/'
+	proxyTo := strings.Replace(r.RequestURI, prefix, "", 1)
 
 	resp, err := client.Get(proxyTo)
 	if err != nil {
@@ -24,7 +30,7 @@ func (h) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if resp.StatusCode == 302 {
 		loc := resp.Header.Get("Location")
-		w.Header().Add("Location", "/"+loc)
+		w.Header().Add("Location", prefix+loc)
 		w.WriteHeader(302)
 		return
 	}
@@ -33,9 +39,8 @@ func (h) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	addr := ":8898"
-	if len(os.Args) >= 2 {
-		addr = os.Args[1]
-	}
+	flag.StringVar(&prefix, "prefix", "/hn-iptv/", "")
+	flag.StringVar(&addr, "addr", ":8098", "")
+	flag.Parse()
 	log.Fatal(http.ListenAndServe(addr, h{}))
 }
